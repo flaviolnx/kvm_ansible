@@ -1,0 +1,50 @@
+---
+- name: install and configure KVM server
+  hosts: kvm
+  vars:
+    kvm_hostname_full: "{{ ansible_fqdn }}"
+  vars_files:
+    - extra_vars.yml
+  become: yes
+  tasks:
+  
+  - name: register and subscribe server
+    redhat_subscription:
+      state: present
+       username: "{{ portal_username }}"
+       password: "{{ portal_password }}"
+       auto_attach: true
+  
+  - name: Disable all RHSM repositories
+    rhsm_repository:
+        name: '*'
+        state: disabled
+
+  - name: enable repository for KVM installation
+    rhsm_repository:
+      name: 
+        - rhel-7-server-rpms
+        - rhel-7-server-ansible-2.9-rpms
+      state: enabled 
+
+  - name: Update hole system to latest version
+    yum:
+      name: '*'
+      state: latest
+
+  - name: Install prerequiments
+    yum:
+      name:
+        - screen
+        - vim
+        - sos
+        - git
+      state: latest
+
+  - name: Install Roles prerequirments
+    local_action:
+      command: ansible-galaxy install -r requirements.yml
+
+  - name: Deploy kvm
+    roles:
+      - reghatgov.kvm
