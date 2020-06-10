@@ -1,0 +1,64 @@
+- name: install and configure Satellite server
+  hosts: satellite
+  vars:
+    satellite_hostname_full: "{{ ansible_fqdn }}"
+    satellite_pool_id: 8a85f99c6c8b9588016c8be0f38a0ee9
+    foreman_username: 'admin'
+    foreman_password: 'redhat'
+    foreman_location: 'SP'
+    foreman_organization: 'Example'
+
+  vars_files:
+    - extra_vars.yml
+  become: yes
+  tasks:
+     
+  - name: register and subscribe server
+    redhat_subscription:
+      state: present
+      username: "{{ portal_username }}"
+      password: "{{ portal_password }}"
+      pool_ids:
+        - '{{ satellite_pool_id }}'
+  
+  - name: Disable all RHSM repositories
+    rhsm_repository:
+        name: '*'
+        state: disabled
+
+  - name: enable repository for Satellite installation
+    rhsm_repository:
+      name: 
+        - rhel-7-server-rpms
+        - rhel-7-server-ansible-2.8-rpms
+        - rhel-7-server-satellite-6.7-rpms
+        - rhel-7-server-satellite-maintenance-6-rpms
+        - rhel-server-rhscl-7-rpms
+      state: enabled 
+
+  - name: Update hole system to latest version
+    yum:
+      name: '*'
+      state: latest
+  
+
+  - name: Install prerequiments
+    yum:
+      name:
+        - screen
+        - vim
+        - sos
+        - git
+        - ansible
+        - satellite
+      state: latest
+
+  - name: update /etc/hosts
+    lineinfile:
+      path: /etc/hosts
+      line: "{{ ansible_default_ipv4.address }} {{ ansible_fqdn }} {{ ansible_hostname }}"
+
+  - name: Install Satellite
+    shell: 'satellite-installer --scenario satellite --foreman-initial-admin-username {{ foreman_username }} --foreman-initial-admin-password {{ foreman_password }} --foreman-proxy-puppetca true --foreman-proxy-tftp true --foreman-initial-location {{ foreman_location }} --foreman-initial-organization {{ foreman_organization }}' 
+
+  - name: configure satellite manifest
